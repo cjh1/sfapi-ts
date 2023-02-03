@@ -1,0 +1,74 @@
+import {
+  Configuration,
+  OAuth2AuthCodePKCE,
+  AccessContext,
+} from "@bity/oauth2-auth-code-pkce";
+// (clientId = OIDC_CLIENT_ID,
+//     redirectUrl = REDIRECT_URL,
+//     postLogin = Promise.resolve(),
+//     authorizationUrl = AUTH_URL,
+//     tokenUrl = TOKEN_URL) {
+
+export class Client {
+  oauth: OAuth2AuthCodePKCE;
+  id_token: string | undefined;
+
+  constructor(
+    clientID: string,
+    redirectUrl: URL,
+    authorizationUrl: URL,
+    tokenUrl: URL
+  ) {
+    const config: Configuration = {
+      clientId: clientID,
+      redirectUrl: redirectUrl.toString(),
+      authorizationUrl: authorizationUrl.toString(),
+      tokenUrl: tokenUrl.toString(),
+      scopes: ["profile", "email", "openid", "nersc", "https://api.nersc.gov"],
+      explicitlyExposedTokens: ["id_token"],
+      extraAuthorizationParams: {
+        claims: JSON.stringify({
+          id_token: {
+            email: { essential: true },
+            preferred_username: { essential: true },
+            ip_range: { essential: true },
+          },
+        }),
+      },
+      onAccessTokenExpiry: this._onAccessTokenExpiry,
+      onInvalidGrant: this._onInvalidGrant,
+    };
+
+    this.oauth = new OAuth2AuthCodePKCE(config);
+
+    this.oauth
+      .isReturningFromAuthServer()
+      .then(async (hasAuthCode: boolean) => {
+        if (!hasAuthCode) {
+          throw new Error("Something wrong...no auth code.");
+        }
+        const token = await this.oauth.getAccessToken();
+        this.id_token = token.explicitlyExposedTokens?.id_token;
+      });
+  }
+
+  _onAccessTokenExpiry(
+    refreshAccessToken: () => Promise<AccessContext>
+  ): Promise<AccessContext> {
+    console.log("Expired! Access token needs to be renewed.");
+    alert(
+      "We will try to get a new access token via grant code or refresh token."
+    );
+    return refreshAccessToken();
+  }
+
+  _onInvalidGrant(_refreshAuthCodeOrRefreshToken: () => Promise<void>): void {
+    console.log("Expired! Auth code or refresh token needs to be renewed.");
+    alert("Redirecting to auth server to obtain a new auth grant code.");
+    //return refreshAuthCodeOrRefreshToken();
+  }
+
+  authorize(): void {
+    this.oauth.fetchAuthorizationCode();
+  }
+}
