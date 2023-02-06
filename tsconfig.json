@@ -15,5 +15,12 @@
     "noImplicitReturns": true,
     "skipLibCheck": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "ts-node": {
+    "transpileOnly": true,
+    "moduleTypes": {
+      "refactor.ts": "cjs",
+    }
+  },
+
 }
