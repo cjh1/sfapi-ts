@@ -3,13 +3,17 @@ import {
   OAuth2AuthCodePKCE,
   AccessContext,
 } from "@bity/oauth2-auth-code-pkce";
+import { OpenAPIConfig } from "./_internal";
+
+import { ClientBase } from "./_internal/ClientBase";
+
 // (clientId = OIDC_CLIENT_ID,
 //     redirectUrl = REDIRECT_URL,
 //     postLogin = Promise.resolve(),
 //     authorizationUrl = AUTH_URL,
 //     tokenUrl = TOKEN_URL) {
 
-export class Client {
+export class Client extends ClientBase {
   oauth: OAuth2AuthCodePKCE;
   id_token: string | undefined;
 
@@ -17,8 +21,15 @@ export class Client {
     clientID: string,
     redirectUrl: URL,
     authorizationUrl: URL,
-    tokenUrl: URL
+    tokenUrl: URL,
+    apiBaseUrl: URL
   ) {
+    const openApiConfig: Partial<OpenAPIConfig> = {
+      BASE: apiBaseUrl.toString(),
+    };
+
+    super(openApiConfig);
+
     const config: Configuration = {
       clientId: clientID,
       redirectUrl: redirectUrl.toString(),
@@ -49,6 +60,7 @@ export class Client {
         }
         const token = await this.oauth.getAccessToken();
         this.id_token = token.explicitlyExposedTokens?.id_token;
+        this.request.config.TOKEN = this.id_token;
       });
   }
 
