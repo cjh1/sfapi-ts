@@ -7,16 +7,18 @@ import { OpenAPIConfig } from "./_internal";
 
 import { ClientBase } from "./_internal/ClientBase";
 
-// (clientId = OIDC_CLIENT_ID,
-//     redirectUrl = REDIRECT_URL,
-//     postLogin = Promise.resolve(),
-//     authorizationUrl = AUTH_URL,
-//     tokenUrl = TOKEN_URL) {
-
 export class Client extends ClientBase {
-  oauth: OAuth2AuthCodePKCE;
+  private oauth: OAuth2AuthCodePKCE;
   id_token: string | undefined;
 
+  /**
+   *
+   * @param clientID - The OIDC client id
+   * @param redirectUrl - The URI to redirect to after the interaction is complete
+   * @param authorizationUrl - The OIDC authorization URL
+   * @param tokenUrl - The OIDC token URL
+   * @param apiBaseUrl - The base URL for the SF API instance
+   */
   constructor(
     clientID: string,
     redirectUrl: URL,
@@ -64,7 +66,7 @@ export class Client extends ClientBase {
       });
   }
 
-  _onAccessTokenExpiry(
+  private _onAccessTokenExpiry(
     refreshAccessToken: () => Promise<AccessContext>
   ): Promise<AccessContext> {
     console.log("Expired! Access token needs to be renewed.");
@@ -74,7 +76,9 @@ export class Client extends ClientBase {
     return refreshAccessToken();
   }
 
-  _onInvalidGrant(_refreshAuthCodeOrRefreshToken: () => Promise<void>): void {
+  private _onInvalidGrant(
+    _refreshAuthCodeOrRefreshToken: () => Promise<void>
+  ): void {
     console.log("Expired! Auth code or refresh token needs to be renewed.");
     alert("Redirecting to auth server to obtain a new auth grant code.");
     //return refreshAuthCodeOrRefreshToken();
@@ -83,4 +87,8 @@ export class Client extends ClientBase {
   authorize(): void {
     this.oauth.fetchAuthorizationCode();
   }
+
+  /** {@inheritDoc ClientBase.account} */
 }
+
+export { ClientBase } from "./_internal";
