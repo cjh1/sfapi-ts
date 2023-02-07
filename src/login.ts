@@ -33,6 +33,9 @@ export function setupStatus(element: HTMLButtonElement) {
 
       const coriStatus = await client.status.getStatusBySystem("cori");
       console.log(coriStatus);
+
+      const roles = await client.account.getRoles();
+      console.log(roles);
     }
   });
 }
