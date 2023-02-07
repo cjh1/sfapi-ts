@@ -81,14 +81,11 @@ export class Client extends ClientBase {
   ): void {
     console.log("Expired! Auth code or refresh token needs to be renewed.");
     alert("Redirecting to auth server to obtain a new auth grant code.");
-    //return refreshAuthCodeOrRefreshToken();
   }
 
   authorize(): void {
     this.oauth.fetchAuthorizationCode();
   }
-
-  /** {@inheritDoc ClientBase.account} */
 }
 
 export { ClientBase } from "./_internal";
