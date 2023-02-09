@@ -1,7 +1,7 @@
 {
-  "name": "sfapi",
-  "private": true,
-  "version": "0.0.1",
+  "name": "@cjh1/sfapi",
+  "version": "0.0.2",
+  "license": "MIT",
   "type": "module",
   "main": "./dist/sfapi.umd.cjs",
   "module": "./dist/sfapi.js",
@@ -29,7 +29,8 @@
     "prettier:check-all": "prettier --check '**/*.{js,jsx,ts,tsx,css,html}'",
     "prettier:write-all": "prettier --write '**/*.{js,jsx,ts,tsx,css,html}'",
     "extract:api": "npm run build && api-extractor run --local --verbose",
-    "build:docs": "npm run extract:api && api-documenter generate -i=docs/input -o=docs/output"
+    "build:docs": "npm run extract:api && api-documenter generate -i=docs/input -o=docs/output",
+    "deploy:docs": "npm run build:docs && gh-pages -d docs/output"
   },
   "devDependencies": {
     "@microsoft/api-documenter": "^7.21.4",
@@ -37,6 +38,7 @@
     "@types/jest": "^29.4.0",
     "@types/jsdom": "^20.0.1",
     "@types/node": "^14.18.36",
+    "gh-pages": "^5.0.0",
     "jest": "^29.4.1",
     "jest-environment-jsdom": "^29.4.1",
     "jsdom": "^21.1.0",
@@ -53,5 +55,8 @@
   "dependencies": {
     "@bity/oauth2-auth-code-pkce": "^2.13.0",
     "tslib": "^2.5.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

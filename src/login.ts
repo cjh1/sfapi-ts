@@ -6,8 +6,8 @@ export function setupLogin(element: HTMLButtonElement) {
   const OIDC_CLIENT_ID = import.meta.env.VITE_OIDC_CLIENT_ID;
   const REDIRECT_URL = "http://localhost:3000/sso";
   const OIDC_BASE_URL = import.meta.env.VITE_OIDC_BASE_URL;
-  const AUTH_URL = OIDC_BASE_URL + "/saml/oidc/authorization";
-  const TOKEN_URL = OIDC_BASE_URL + "/oidc/token";
+  const AUTH_URL = `${OIDC_BASE_URL}/saml/oidc/authorization`;
+  const TOKEN_URL = `${OIDC_BASE_URL}/oidc/token`;
   const API_URL = import.meta.env.VITE_API_URL;
 
   client = new Client(
