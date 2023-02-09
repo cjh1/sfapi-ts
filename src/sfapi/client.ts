@@ -58,7 +58,7 @@ export class Client extends ClientBase {
       .isReturningFromAuthServer()
       .then(async (hasAuthCode: boolean) => {
         if (!hasAuthCode) {
-          throw new Error("Something wrong...no auth code.");
+          return;
         }
         const token = await this.oauth.getAccessToken();
         this.id_token = token.explicitlyExposedTokens?.id_token;
