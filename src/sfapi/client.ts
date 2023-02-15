@@ -6,6 +6,47 @@ import {
 import { OpenAPIConfig } from "./_internal";
 
 import { ClientBase } from "./_internal/ClientBase";
+import { FetchHttpRequest } from "./_internal/core/FetchHttpRequest";
+import type { ApiRequestOptions } from "./_internal/core/ApiRequestOptions";
+import { CancelablePromise } from "./_internal/core/CancelablePromise";
+
+class Oauth2FetchHttpRequest extends FetchHttpRequest {
+  private oauth: OAuth2AuthCodePKCE | undefined;
+
+  constructor(config: OpenAPIConfig) {
+    super(config);
+  }
+
+  /**
+   * Request method
+   * @param options The request options from the service
+   * @returns CancelablePromise<T>
+   * @throws ApiError
+   */
+  public override request<T>(options: ApiRequestOptions): CancelablePromise<T> {
+    return new CancelablePromise<T>(async (resolve, reject, onCancel) => {
+      try {
+        // If we are authorized fetch the token first
+        if (this.oauth && this.oauth.isAuthorized()) {
+          const token = await this.oauth.getAccessToken();
+          const id_token = token.explicitlyExposedTokens?.id_token;
+          this.config.TOKEN = id_token;
+        }
+
+        const responsePromise = super.request<T>(options);
+        onCancel(() => responsePromise.cancel());
+
+        resolve(responsePromise);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  public setOAuth2(oauth: OAuth2AuthCodePKCE) {
+    this.oauth = oauth;
+  }
+}
 
 export class Client extends ClientBase {
   private oauth: OAuth2AuthCodePKCE;
@@ -30,7 +71,7 @@ export class Client extends ClientBase {
       BASE: apiBaseUrl.toString(),
     };
 
-    super(openApiConfig);
+    super(openApiConfig, Oauth2FetchHttpRequest);
 
     const config: Configuration = {
       clientId: clientID,
@@ -64,6 +105,11 @@ export class Client extends ClientBase {
         this.id_token = token.explicitlyExposedTokens?.id_token;
         this.request.config.TOKEN = this.id_token;
       });
+
+    // Now that we have our OAuth2AuthCodePKCE instance we need to set
+    // it on our request. We have todo this in this convoluted way as we
+    // can't access "this" before "super" is call!
+    (this.request as Oauth2FetchHttpRequest).setOAuth2(this.oauth);
   }
 
   private _onAccessTokenExpiry(
@@ -85,6 +131,10 @@ export class Client extends ClientBase {
 
   authorize(): void {
     this.oauth.fetchAuthorizationCode();
+  }
+
+  reset(): void {
+    this.oauth.reset();
   }
 }
 
