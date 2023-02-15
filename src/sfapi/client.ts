@@ -136,6 +136,10 @@ export class Client extends ClientBase {
   reset(): void {
     this.oauth.reset();
   }
+
+  isAuthorized(): boolean {
+    return this.oauth.isAuthorized();
+  }
 }
 
 export { ClientBase } from "./_internal";
