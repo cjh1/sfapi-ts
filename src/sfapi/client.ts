@@ -125,6 +125,13 @@ export class Client extends ClientBase {
 
     super(openApiConfig, Oauth2FetchHttpRequest);
 
+    // Override the utilities service so we get progress
+    type WritableClient = {
+      -readonly [key in keyof Client]: Client[key];
+    }
+
+    const writable: WritableClient = this;
+
     const config: Configuration = {
       clientId: clientID,
       redirectUrl: redirectUrl.toString(),
@@ -147,6 +154,7 @@ export class Client extends ClientBase {
 
     this.oauth = new OAuth2AuthCodePKCE(config);
 
+    writable.utilities = new UtilitiesService(this.request, this.oauth);
 
     // Now that we have our OAuth2AuthCodePKCE instance and callback we
     // need to set it on our request. We have todo this in this convoluted
