@@ -18,7 +18,9 @@ export function setupLogin(element: HTMLButtonElement) {
     new URL(TOKEN_URL),
     ["profile", "email", "openid", "nersc", "https://api.nersc.gov"],
     new URL(API_URL),
-    () => {return new Promise<AccessContext>(() => {})},
+    () => {
+      return new Promise<AccessContext>(() => {});
+    },
     () => {}
   );
 

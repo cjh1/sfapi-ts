@@ -2,7 +2,10 @@ import {
   Configuration,
   OAuth2AuthCodePKCE,
   AccessContext,
-  fromWWWAuthenticateHeaderStringToObject, toErrorClass, ErrorInvalidToken, ErrorNoAuthCode
+  fromWWWAuthenticateHeaderStringToObject,
+  toErrorClass,
+  ErrorInvalidToken,
+  ErrorNoAuthCode,
 } from "@bity/oauth2-auth-code-pkce";
 import { ApiError, OpenAPIConfig } from "./_internal";
 
@@ -12,11 +15,15 @@ import type { ApiRequestOptions } from "./_internal/core/ApiRequestOptions";
 import { CancelablePromise } from "./_internal/core/CancelablePromise";
 import { UtilitiesService } from "./services/UtilitiesService";
 
-const HEADER_WWW_AUTHENTICATE= "WWW-Authenticate";
+const HEADER_WWW_AUTHENTICATE = "WWW-Authenticate";
 
 class Oauth2FetchHttpRequest extends FetchHttpRequest {
   private oauth: OAuth2AuthCodePKCE | undefined;
-  private onAccessTokenExpiry: ((refreshAccessToken: () => Promise<AccessContext>) => Promise<AccessContext>) | undefined;
+  private onAccessTokenExpiry:
+    | ((
+        refreshAccessToken: () => Promise<AccessContext>
+      ) => Promise<AccessContext>)
+    | undefined;
 
   constructor(config: OpenAPIConfig) {
     super(config);
@@ -29,10 +36,9 @@ class Oauth2FetchHttpRequest extends FetchHttpRequest {
    * @throws ApiError
    */
   public override request<T>(options: ApiRequestOptions): CancelablePromise<T> {
-      return new CancelablePromise<T>(async (resolve, reject, onCancel) => {
-
+    return new CancelablePromise<T>(async (resolve, reject, onCancel) => {
       // Request the WWW-Authenticate header so we can handle token expiry
-      options = {responseHeader: HEADER_WWW_AUTHENTICATE, ...options}
+      options = { responseHeader: HEADER_WWW_AUTHENTICATE, ...options };
 
       try {
         if (this.oauth) {
@@ -47,9 +53,8 @@ class Oauth2FetchHttpRequest extends FetchHttpRequest {
             }
             headers["Authorization"] = `Bearer ${accessToken}`;
 
-            options = {headers, ...options};
-          }
-          catch (error) {
+            options = { headers, ...options };
+          } catch (error) {
             // If we don't have a auth code move on without the token
             if (!(error instanceof ErrorNoAuthCode)) {
               throw error;
@@ -65,20 +70,27 @@ class Oauth2FetchHttpRequest extends FetchHttpRequest {
 
         resolve(response);
       } catch (error) {
-
         // Intercept expired token errors and try again
         if (error instanceof ApiError) {
-
           // If we have an erro in the WWW-Authenticate header check the type
-          if (typeof error.body === "string" && error.body.includes("Bearer error=")) {
+          if (
+            typeof error.body === "string" &&
+            error.body.includes("Bearer error=")
+          ) {
             const errorInstance = toErrorClass(
-              fromWWWAuthenticateHeaderStringToObject(
-                error.body
-              ).error
+              fromWWWAuthenticateHeaderStringToObject(error.body).error
             );
 
-            if (errorInstance instanceof ErrorInvalidToken && this.oauth && this.onAccessTokenExpiry) {
-              this.onAccessTokenExpiry(() => (this.oauth as OAuth2AuthCodePKCE).exchangeRefreshTokenForAccessToken());
+            if (
+              errorInstance instanceof ErrorInvalidToken &&
+              this.oauth &&
+              this.onAccessTokenExpiry
+            ) {
+              this.onAccessTokenExpiry(() =>
+                (
+                  this.oauth as OAuth2AuthCodePKCE
+                ).exchangeRefreshTokenForAccessToken()
+              );
             }
           }
         }
@@ -88,7 +100,12 @@ class Oauth2FetchHttpRequest extends FetchHttpRequest {
     });
   }
 
-  public setOAuth2(oauth: OAuth2AuthCodePKCE, onAccessTokenExpiry: (refreshAccessToken: () => Promise<AccessContext>) => Promise<AccessContext>) {
+  public setOAuth2(
+    oauth: OAuth2AuthCodePKCE,
+    onAccessTokenExpiry: (
+      refreshAccessToken: () => Promise<AccessContext>
+    ) => Promise<AccessContext>
+  ) {
     this.oauth = oauth;
     this.onAccessTokenExpiry = onAccessTokenExpiry;
   }
@@ -116,7 +133,9 @@ export class Client extends ClientBase {
     tokenUrl: URL,
     scopes: string[],
     apiBaseUrl: URL,
-    onAccessTokenExpiry: (refreshAccessToken: () => Promise<AccessContext>) => Promise<AccessContext>,
+    onAccessTokenExpiry: (
+      refreshAccessToken: () => Promise<AccessContext>
+    ) => Promise<AccessContext>,
     onInvalidGrant: (refreshAuthCodeOrRefreshToken: () => Promise<void>) => void
   ) {
     const openApiConfig: Partial<OpenAPIConfig> = {
@@ -128,7 +147,7 @@ export class Client extends ClientBase {
     // Override the utilities service so we get progress
     type WritableClient = {
       -readonly [key in keyof Client]: Client[key];
-    }
+    };
 
     const writable: WritableClient = this;
 
@@ -159,7 +178,10 @@ export class Client extends ClientBase {
     // Now that we have our OAuth2AuthCodePKCE instance and callback we
     // need to set it on our request. We have todo this in this convoluted
     // way as we can't access "this" before "super" is call!
-    (this.request as Oauth2FetchHttpRequest).setOAuth2(this.oauth, onAccessTokenExpiry);
+    (this.request as Oauth2FetchHttpRequest).setOAuth2(
+      this.oauth,
+      onAccessTokenExpiry
+    );
 
     // This is needed, as the sideffect is the parse the access token!
     this.oauth.isReturningFromAuthServer();

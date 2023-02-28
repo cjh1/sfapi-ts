@@ -20,7 +20,9 @@ it("create a Client", () => {
     new URL(TOKEN_URL),
     [],
     new URL(API_URL),
-    () => {return new Promise<AccessContext>(() => {})},
+    () => {
+      return new Promise<AccessContext>(() => {});
+    },
     () => {}
   );
 });
