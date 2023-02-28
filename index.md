@@ -8,5 +8,5 @@
 
 |  Package | Description |
 |  --- | --- |
-|  [sfapi](./sfapi.md) |  |
+|  [@cjh1/sfapi](./sfapi.md) |  |
 
