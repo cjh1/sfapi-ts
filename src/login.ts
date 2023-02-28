@@ -1,3 +1,4 @@
+import { AccessContext } from "@bity/oauth2-auth-code-pkce";
 import { Client } from "./sfapi";
 
 let client: Client | null = null;
@@ -15,7 +16,10 @@ export function setupLogin(element: HTMLButtonElement) {
     new URL(REDIRECT_URL),
     new URL(AUTH_URL),
     new URL(TOKEN_URL),
-    new URL(API_URL)
+    ["profile", "email", "openid", "nersc", "https://api.nersc.gov"],
+    new URL(API_URL),
+    () => {return new Promise<AccessContext>(() => {})},
+    () => {}
   );
 
   element.addEventListener("click", () => {
@@ -34,7 +38,7 @@ export function setupStatus(element: HTMLButtonElement) {
       const coriStatus = await client.status.getStatusBySystem("cori");
       console.log(coriStatus);
 
-      const roles = await client.account.getRoles();
+      const roles = await client.account.getUser();
       console.log(roles);
     }
   });

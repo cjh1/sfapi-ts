@@ -11,25 +11,25 @@ export default defineConfig({
       fileName: "sfapi",
     },
     rollupOptions: {
-      output:[
+      output: [
         // The default ending for UMD is cjs, how this causes problems (CORS)
         // when serving with unpkg so add a copy with js ending.
         {
           format: "umd",
           name: "sfapi",
-          entryFileNames: "sfapi.umd.js"
+          entryFileNames: "sfapi.umd.js",
         },
         {
           format: "umd",
-          name: "sfapi"
+          name: "sfapi",
         },
         {
           format: "esm",
           name: "sfapi",
-          entryFileNames: "sfapi.js"
-        }
-      ]
-    }
+          entryFileNames: "sfapi.js",
+        },
+      ],
+    },
   },
   plugins: [dts()],
 });
