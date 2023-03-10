@@ -23,7 +23,6 @@ export declare class Client extends ClientBase
 |  --- | --- | --- | --- |
 |  [account](./sfapi.clientbase.account.md) | <code>readonly</code> | [AccountService](./sfapi.accountservice.md) | (Inherited from [ClientBase](./sfapi.clientbase.md)<!-- -->) |
 |  [compute](./sfapi.clientbase.compute.md) | <code>readonly</code> | [ComputeService](./sfapi.computeservice.md) | (Inherited from [ClientBase](./sfapi.clientbase.md)<!-- -->) |
-|  [id\_token](./sfapi.client.id_token.md) |  | string \| undefined |  |
 |  [meta](./sfapi.clientbase.meta.md) | <code>readonly</code> | [MetaService](./sfapi.metaservice.md) | (Inherited from [ClientBase](./sfapi.clientbase.md)<!-- -->) |
 |  [request](./sfapi.clientbase.request.md) | <code>readonly</code> | [BaseHttpRequest](./sfapi.basehttprequest.md) | (Inherited from [ClientBase](./sfapi.clientbase.md)<!-- -->) |
 |  [status](./sfapi.clientbase.status.md) | <code>readonly</code> | [StatusService](./sfapi.statusservice.md) | (Inherited from [ClientBase](./sfapi.clientbase.md)<!-- -->) |
@@ -36,6 +35,7 @@ export declare class Client extends ClientBase
 |  Method | Modifiers | Description |
 |  --- | --- | --- |
 |  [authorize()](./sfapi.client.authorize.md) |  |  |
+|  [fetch(options)](./sfapi.client.fetch.md) |  |  |
 |  [isAuthorized()](./sfapi.client.isauthorized.md) |  |  |
 |  [isReturningFromAuthServer()](./sfapi.client.isreturningfromauthserver.md) |  |  |
 |  [reset()](./sfapi.client.reset.md) |  |  |
