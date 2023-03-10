@@ -113,7 +113,9 @@ class Oauth2FetchHttpRequest extends FetchHttpRequest {
 
 export class Client extends ClientBase {
   private oauth: OAuth2AuthCodePKCE;
-  id_token: string | undefined;
+  private onAccessTokenExpiry: (
+    refreshAccessToken: () => Promise<AccessContext>
+  ) => Promise<AccessContext>;
 
   /**
    *
@@ -143,6 +145,8 @@ export class Client extends ClientBase {
     };
 
     super(openApiConfig, Oauth2FetchHttpRequest);
+
+    this.onAccessTokenExpiry = onAccessTokenExpiry;
 
     // Override the utilities service so we get progress
     type WritableClient = {
@@ -201,6 +205,37 @@ export class Client extends ClientBase {
 
   public isReturningFromAuthServer(): Promise<boolean> {
     return this.oauth.isReturningFromAuthServer();
+  }
+
+  public fetch<T>(options: ApiRequestOptions): CancelablePromise<T> {
+    // If we have been given an absolute URL, create a 'clean' request
+    // object without the SF API base URL configured
+    let absolute = false;
+    try {
+      new URL(options.url);
+      absolute = true;
+    } catch (_) {
+      // We have been past a relative path
+    }
+
+    let requestObj = this.request;
+
+    if (absolute) {
+      const config: OpenAPIConfig = {
+        BASE: "",
+        VERSION: "",
+        WITH_CREDENTIALS: false,
+        CREDENTIALS: "include",
+      };
+
+      requestObj = new Oauth2FetchHttpRequest(config);
+      (requestObj as Oauth2FetchHttpRequest).setOAuth2(
+        this.oauth,
+        this.onAccessTokenExpiry
+      );
+    }
+
+    return requestObj.request(options);
   }
 }
 
