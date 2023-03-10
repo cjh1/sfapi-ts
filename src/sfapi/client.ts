@@ -2,14 +2,120 @@ import {
   Configuration,
   OAuth2AuthCodePKCE,
   AccessContext,
+  fromWWWAuthenticateHeaderStringToObject,
+  toErrorClass,
+  ErrorInvalidToken,
+  ErrorNoAuthCode,
 } from "@bity/oauth2-auth-code-pkce";
-import { OpenAPIConfig } from "./_internal";
+import { ApiError, OpenAPIConfig } from "./_internal";
 
 import { ClientBase } from "./_internal/ClientBase";
+import { FetchHttpRequest } from "./_internal/core/FetchHttpRequest";
+import type { ApiRequestOptions } from "./_internal/core/ApiRequestOptions";
+import { CancelablePromise } from "./_internal/core/CancelablePromise";
+import { UtilitiesService } from "./services/UtilitiesService";
+
+const HEADER_WWW_AUTHENTICATE = "WWW-Authenticate";
+
+class Oauth2FetchHttpRequest extends FetchHttpRequest {
+  private oauth: OAuth2AuthCodePKCE | undefined;
+  private onAccessTokenExpiry:
+    | ((
+        refreshAccessToken: () => Promise<AccessContext>
+      ) => Promise<AccessContext>)
+    | undefined;
+
+  constructor(config: OpenAPIConfig) {
+    super(config);
+  }
+
+  /**
+   * Request method
+   * @param options The request options from the service
+   * @returns CancelablePromise<T>
+   * @throws ApiError
+   */
+  public override request<T>(options: ApiRequestOptions): CancelablePromise<T> {
+    return new CancelablePromise<T>(async (resolve, reject, onCancel) => {
+      // Request the WWW-Authenticate header so we can handle token expiry
+      options = { responseHeader: HEADER_WWW_AUTHENTICATE, ...options };
+
+      try {
+        if (this.oauth) {
+          try {
+            //this.config.TOKEN = undefined;
+            const token = await this.oauth.getAccessToken();
+            const accessToken = token.token?.value;
+
+            let headers: Record<string, any> = {};
+            if (options.headers) {
+              headers = options.headers;
+            }
+            headers["Authorization"] = `Bearer ${accessToken}`;
+
+            options = { headers, ...options };
+          } catch (error) {
+            // If we don't have a auth code move on without the token
+            if (!(error instanceof ErrorNoAuthCode)) {
+              throw error;
+            }
+          }
+        }
+
+        const responsePromise = super.request<T>(options);
+
+        onCancel(() => responsePromise.cancel());
+
+        const response = await responsePromise;
+
+        resolve(response);
+      } catch (error) {
+        // Intercept expired token errors and try again
+        if (error instanceof ApiError) {
+          // If we have an erro in the WWW-Authenticate header check the type
+          if (
+            typeof error.body === "string" &&
+            error.body.includes("Bearer error=")
+          ) {
+            const errorInstance = toErrorClass(
+              fromWWWAuthenticateHeaderStringToObject(error.body).error
+            );
+
+            if (
+              errorInstance instanceof ErrorInvalidToken &&
+              this.oauth &&
+              this.onAccessTokenExpiry
+            ) {
+              this.onAccessTokenExpiry(() =>
+                (
+                  this.oauth as OAuth2AuthCodePKCE
+                ).exchangeRefreshTokenForAccessToken()
+              );
+            }
+          }
+        }
+
+        reject(error);
+      }
+    });
+  }
+
+  public setOAuth2(
+    oauth: OAuth2AuthCodePKCE,
+    onAccessTokenExpiry: (
+      refreshAccessToken: () => Promise<AccessContext>
+    ) => Promise<AccessContext>
+  ) {
+    this.oauth = oauth;
+    this.onAccessTokenExpiry = onAccessTokenExpiry;
+  }
+}
 
 export class Client extends ClientBase {
   private oauth: OAuth2AuthCodePKCE;
-  id_token: string | undefined;
+  private onAccessTokenExpiry: (
+    refreshAccessToken: () => Promise<AccessContext>
+  ) => Promise<AccessContext>;
 
   /**
    *
@@ -17,27 +123,44 @@ export class Client extends ClientBase {
    * @param redirectUrl - The URI to redirect to after the interaction is complete
    * @param authorizationUrl - The OIDC authorization URL
    * @param tokenUrl - The OIDC token URL
+   * @param scopes - The scopes to request
    * @param apiBaseUrl - The base URL for the SF API instance
+   * @param onAccessTokenExpiry - Callback for token expiry
+   * @param onInvalidGrant - Callback for invalid grant
    */
   constructor(
     clientID: string,
     redirectUrl: URL,
     authorizationUrl: URL,
     tokenUrl: URL,
-    apiBaseUrl: URL
+    scopes: string[],
+    apiBaseUrl: URL,
+    onAccessTokenExpiry: (
+      refreshAccessToken: () => Promise<AccessContext>
+    ) => Promise<AccessContext>,
+    onInvalidGrant: (refreshAuthCodeOrRefreshToken: () => Promise<void>) => void
   ) {
     const openApiConfig: Partial<OpenAPIConfig> = {
       BASE: apiBaseUrl.toString(),
     };
 
-    super(openApiConfig);
+    super(openApiConfig, Oauth2FetchHttpRequest);
+
+    this.onAccessTokenExpiry = onAccessTokenExpiry;
+
+    // Override the utilities service so we get progress
+    type WritableClient = {
+      -readonly [key in keyof Client]: Client[key];
+    };
+
+    const writable: WritableClient = this;
 
     const config: Configuration = {
       clientId: clientID,
       redirectUrl: redirectUrl.toString(),
       authorizationUrl: authorizationUrl.toString(),
       tokenUrl: tokenUrl.toString(),
-      scopes: ["profile", "email", "openid", "nersc", "https://api.nersc.gov"],
+      scopes,
       explicitlyExposedTokens: ["id_token"],
       extraAuthorizationParams: {
         claims: JSON.stringify({
@@ -48,43 +171,71 @@ export class Client extends ClientBase {
           },
         }),
       },
-      onAccessTokenExpiry: this._onAccessTokenExpiry,
-      onInvalidGrant: this._onInvalidGrant,
+      onAccessTokenExpiry,
+      onInvalidGrant,
     };
 
     this.oauth = new OAuth2AuthCodePKCE(config);
 
-    this.oauth
-      .isReturningFromAuthServer()
-      .then(async (hasAuthCode: boolean) => {
-        if (!hasAuthCode) {
-          return;
-        }
-        const token = await this.oauth.getAccessToken();
-        this.id_token = token.explicitlyExposedTokens?.id_token;
-        this.request.config.TOKEN = this.id_token;
-      });
-  }
+    writable.utilities = new UtilitiesService(this.request, this.oauth);
 
-  private _onAccessTokenExpiry(
-    refreshAccessToken: () => Promise<AccessContext>
-  ): Promise<AccessContext> {
-    console.log("Expired! Access token needs to be renewed.");
-    alert(
-      "We will try to get a new access token via grant code or refresh token."
+    // Now that we have our OAuth2AuthCodePKCE instance and callback we
+    // need to set it on our request. We have todo this in this convoluted
+    // way as we can't access "this" before "super" is call!
+    (this.request as Oauth2FetchHttpRequest).setOAuth2(
+      this.oauth,
+      onAccessTokenExpiry
     );
-    return refreshAccessToken();
+
+    // This is needed, as the sideffect is the parse the access token!
+    this.oauth.isReturningFromAuthServer();
   }
 
-  private _onInvalidGrant(
-    _refreshAuthCodeOrRefreshToken: () => Promise<void>
-  ): void {
-    console.log("Expired! Auth code or refresh token needs to be renewed.");
-    alert("Redirecting to auth server to obtain a new auth grant code.");
-  }
-
-  authorize(): void {
+  public authorize(): void {
     this.oauth.fetchAuthorizationCode();
+  }
+
+  public reset(): void {
+    this.oauth.reset();
+  }
+
+  public isAuthorized(): boolean {
+    return this.oauth.isAuthorized();
+  }
+
+  public isReturningFromAuthServer(): Promise<boolean> {
+    return this.oauth.isReturningFromAuthServer();
+  }
+
+  public fetch<T>(options: ApiRequestOptions): CancelablePromise<T> {
+    // If we have been given an absolute URL, create a 'clean' request
+    // object without the SF API base URL configured
+    let absolute = false;
+    try {
+      new URL(options.url);
+      absolute = true;
+    } catch (_) {
+      // We have been past a relative path
+    }
+
+    let requestObj = this.request;
+
+    if (absolute) {
+      const config: OpenAPIConfig = {
+        BASE: "",
+        VERSION: "",
+        WITH_CREDENTIALS: false,
+        CREDENTIALS: "include",
+      };
+
+      requestObj = new Oauth2FetchHttpRequest(config);
+      (requestObj as Oauth2FetchHttpRequest).setOAuth2(
+        this.oauth,
+        this.onAccessTokenExpiry
+      );
+    }
+
+    return requestObj.request(options);
   }
 }
 

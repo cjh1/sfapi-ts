@@ -1,5 +1,5 @@
 import { Client } from "./client";
-import { OAuth2AuthCodePKCE } from "@bity/oauth2-auth-code-pkce";
+import { AccessContext, OAuth2AuthCodePKCE } from "@bity/oauth2-auth-code-pkce";
 
 jest.mock("@bity/oauth2-auth-code-pkce");
 
@@ -18,6 +18,11 @@ it("create a Client", () => {
     new URL(REDIRECT_URL),
     new URL(AUTH_URL),
     new URL(TOKEN_URL),
-    new URL(API_URL)
+    [],
+    new URL(API_URL),
+    () => {
+      return new Promise<AccessContext>(() => {});
+    },
+    () => {}
   );
 });
