@@ -1,6 +1,6 @@
 {
   "name": "@cjh1/sfapi",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "license": "MIT",
   "type": "module",
   "main": "./dist/sfapi.umd.cjs",
